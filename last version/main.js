@@ -160,7 +160,7 @@ const source = new ol.source.Vector({ wrapX: false });
                 return new ol.style.Style({
                     image: new ol.style.Icon({
                         src: 'icone/nord.png',
-                        scale: 0.15,          // ajuste la taille selon tes besoins (plus grand que la borne)
+                        scale: 0.22,          // ajuste la taille selon tes besoins (plus grand que la borne)
                         anchor: [0.5, 0.5],   // centre l'icône sur le point
                         rotateWithView: false
                     })
@@ -386,6 +386,100 @@ const source = new ol.source.Vector({ wrapX: false });
             if (e.target === modal) modal.style.display = 'none';
         });
     });
+
+    // document.addEventListener('DOMContentLoaded', function() {
+
+    //     const exportBtn    = document.getElementById('exportPDF');   // ← ton bouton original
+    //     const modal        = document.getElementById('exportModal');
+    //     const cancelBtn    = document.getElementById('cancelExport');
+    //     const confirmBtn   = document.getElementById('confirmExport');
+    //     const exportType   = document.getElementById('exportType');
+    //     const pdfOptions   = document.getElementById('pdfOptions');
+    //     const modalTitle   = document.getElementById('modalTitle');
+    //     const confirmText  = confirmBtn.querySelector('span') || confirmBtn; // pour changer le texte
+
+    //     // Mise à jour dynamique du titre et du bouton + affichage options PDF
+    //     function updateUI() {
+    //         const type = exportType.value;
+    //         modalTitle.textContent = type === 'pdf' ? "Exporter en PDF" : "Exporter en JPEG";
+    //         confirmBtn.textContent = type === 'pdf' ? "Exporter PDF" : "Exporter JPEG";
+            
+    //         pdfOptions.style.display = type === 'pdf' ? 'block' : 'none';
+    //     }
+
+    //     exportType.addEventListener('change', updateUI);
+    //     updateUI(); // initial
+
+    //     // Ouvrir le modal (remplace l'ancien onclick du bouton exportPDF)
+    //     exportBtn.onclick = function() {
+    //         modal.style.display = 'flex';
+    //     };
+
+    //     // Annuler
+    //     cancelBtn.onclick = function() {
+    //         modal.style.display = 'none';
+    //     };
+
+    //     // Confirmer → lance l'export selon le choix
+    //     confirmBtn.onclick = function() {
+    //         const type = exportType.value;
+    //         modal.style.display = 'none';
+
+    //         getMapImage(function(canvas) {
+    //             if (type === 'jpeg') {
+    //                 // Export JPEG simple
+    //                 const link = document.createElement('a');
+    //                 link.href = canvas.toDataURL('image/jpeg', 0.95);
+    //                 link.download = 'carte_export.jpg';
+    //                 link.click();
+    //             } 
+    //             else {
+    //                 // Export PDF (logique précédente)
+    //                 const { jsPDF } = window.jspdf;
+    //                 const formatVal = document.getElementById('pdfFormat').value;
+    //                 const dpi       = parseInt(document.getElementById('pdfDpi').value);
+
+    //                 let pageWidth, pageHeight;
+    //                 switch(formatVal) {
+    //                     case 'a3':     pageWidth = 420; pageHeight = 297; break;
+    //                     case 'a4':     pageWidth = 297; pageHeight = 210; break;
+    //                     case 'a5':     pageWidth = 210; pageHeight = 148; break;
+    //                     case 'letter': pageWidth = 215.9; pageHeight = 279.4; break;
+    //                     default:       pageWidth = 297; pageHeight = 210;
+    //                 }
+
+    //                 const pdf = new jsPDF({
+    //                     orientation: 'landscape',
+    //                     unit: 'mm',
+    //                     format: [pageWidth, pageHeight]
+    //                 });
+
+    //                 const scale = dpi / 72;
+    //                 const tempCanvas = document.createElement('canvas');
+    //                 tempCanvas.width  = canvas.width  * scale;
+    //                 tempCanvas.height = canvas.height * scale;
+    //                 const ctx = tempCanvas.getContext('2d');
+    //                 ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    //                 pdf.addImage(
+    //                     tempCanvas.toDataURL('image/jpeg', 0.92),
+    //                     'JPEG',
+    //                     0, 0,
+    //                     pageWidth,
+    //                     pageHeight
+    //                 );
+
+    //                 pdf.output('dataurlnewwindow');  // ouvre dans nouvel onglet
+    //                 pdf.save(`carte_${formatVal}_${dpi}dpi.pdf`);
+    //             }
+    //         });
+    //     };
+
+    //     // Clic en dehors → fermer
+    //     modal.addEventListener('click', function(e) {
+    //         if (e.target === modal) modal.style.display = 'none';
+    //     });
+    // });
 
     // ============================================================================
     // ========== Gestion du bouton Polygone + modal ==========
