@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dessin simple sans carte – OpenLayers</title>
+    <!-- <link rel="stylesheet" href="https://unpkg.com/ol/ol.css" />
+    <script src="https://unpkg.com/ol/dist/ol.js"></script> -->
+    <link href="open-layer/open-layer.css" rel="stylesheet" />
+    <script src="open-layer/open-layer.js" type="text/javascript"></script>
+    <script src="open-layer/proj/projs.js" type="text/javascript"></script>
+    <script src="open-layer/layerSwitcher.js" type="text/javascript"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 800px;
+            background: #f0f0f0;
+            position: relative;
+        }
+
+        /* Positionnement input HTML directement */
+        #textInputDiv {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 6px;
+            border-radius: 6px;
+            z-index: 10000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h3>Dessiner sur un espace blanc</h3>
+
+    <div id="tools">
+        <button data-type="Polygon">Polygone</button>
+        <button data-type="LineString">Mur</button>
+        <button data-type="Point">Borne</button>
+        <button data-type="Arrow">Arrow</button>
+        <button data-type="NordIcone">Nord Icone</button>
+        <button data-type="Text">Text</button>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- boutton exporter -->
+    <div style="margin-top:10px">
+        <button id="exportPDF">Exporter</button>
+    </div>
+
+    <!-- ===================================================================================================================== -->
+    <!-- MODAL pour les options d'export -->
+    <div id="exportModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; justify-content:center; align-items:center; font-family:Arial,sans-serif;">
+        <div style="background:white; padding:24px; border-radius:8px; width:400px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 id="modalTitle" style="margin-top:0; text-align:center;">Exporter la carte</h3>
+            
+            <label>Type d'export :</label><br>
+            <select id="exportType" style="width:100%; padding:8px; margin:8px 0 16px 0; font-size:16px;">
+                <option value="pdf" selected>PDF (imprimable, vectoriel possible)</option>
+                <option value="jpeg">JPEG (image simple)</option>
+            </select>
+
+            <div id="pdfOptions" style="display:block;">
+                <label>Format de page :</label><br>
+                <select id="pdfFormat" style="width:100%; padding:8px; margin:8px 0;">
+                    <option value="a3">A3 (420 × 297 mm)</option>
+                    <option value="a4" selected>A4 (297 × 210 mm)</option>
+                    <option value="a5">A5 (210 × 148 mm)</option>
+                    <option value="letter">Letter (216 × 279 mm)</option>
+                </select>
+
+                <label>Résolution (DPI) :</label><br>
+                <select id="pdfDpi" style="width:100%; padding:8px; margin:8px 0 20px 0;">
+                    <option value="72">72 dpi (écran – rapide)</option>
+                    <option value="150">150 dpi (bon compromis)</option>
+                    <option value="300" selected>300 dpi (qualité impression)</option>
+                </select>
+            </div>
+
+            <div style="text-align:right; margin-top:20px;">
+                <button id="cancelExport" style="padding:10px 20px; margin-right:12px; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer;">Annuler</button>
+                <button id="confirmExport" style="padding:10px 20px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer; min-width:140px;">Exporter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================================================================== -->
+     <!-- MODAL pour options Polygone -->
+    <div id="polygonModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; justify-content:center; align-items:center; font-family:Arial,sans-serif;">
+        <div style="background:white; padding:24px; border-radius:8px; width:380px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0; text-align:center;">Options du Polygone</h3>
+
+            <label>Épaisseur de la ligne (px) :</label><br>
+            <select id="polyStrokeWidth" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="0.5">0.5 px</option>
+                <option value="1">1 px</option>
+                <option value="2" selected>2 px</option>
+                <option value="3">3 px</option>
+                <option value="4">4 px</option>
+                <option value="5">5 px</option>
+                <option value="6">6 px</option>
+                <option value="7">7 px</option>
+                <option value="8">8 px</option>
+            </select>
+
+            <label>Couleur de la ligne :</label><br>
+            <select id="polyStrokeColor" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="black" selected>Noir</option>
+                <option value="red">Rouge</option>
+                <option value="blue">Bleu</option>
+                <option value="green">Vert</option>
+                <option value="#ff9900">Orange</option>
+                <option value="#800080">Violet</option>
+                <option value="none-double">Pas de couleur (double ligne neutre)</option>
+            </select>
+
+            <label>Remplissage intérieur :</label><br>
+            <select id="polyFill" style="width:100%; padding:8px; margin:12px 0 20px 0;">
+                <option value="none">Pas de remplissage (transparent)</option>
+                <option value="rgba(0,0,0,0.15)" selected>Noir très clair</option>
+                <option value="rgba(255,0,0,0.2)">Rouge clair</option>
+                <option value="rgba(0,0,255,0.2)">Bleu clair</option>
+                <option value="rgba(0,255,0,0.2)">Vert clair</option>
+            </select>
+
+            <div style="text-align:right;">
+                <button id="cancelPoly" style="padding:10px 20px; margin-right:12px; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer;">Annuler</button>
+                <button id="startPoly" style="padding:10px 20px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer;">Commencer le dessin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL pour ajouter du texte -->
+    <div id="textModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; justify-content:center; align-items:center; font-family:Arial,sans-serif;">
+        <div style="background:white; padding:24px; border-radius:8px; width:400px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0; text-align:center;">Ajouter du texte</h3>
+
+            <label>Texte à ajouter :</label><br>
+            <input id="textContent" type="text" placeholder="Entrez votre texte ici..." style="width:100%; padding:8px; margin:8px 0 16px 0; box-sizing:border-box;">
+
+            <label>Taille de la police :</label><br>
+            <select id="textSize" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="12">12 px</option>
+                <option value="14">14 px</option>
+                <option value="16" selected>16 px</option>
+                <option value="18">18 px</option>
+                <option value="20">20 px</option>
+                <option value="24">24 px</option>
+                <option value="28">28 px</option>
+                <option value="32">32 px</option>
+            </select>
+
+            <label>Casse du texte :</label><br>
+            <select id="textCase" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="as-is" selected>Tel quel</option>
+                <option value="upper">MAJUSCULES</option>
+                <option value="lower">minuscules</option>
+                <option value="capitalize">Première Lettre Majuscule</option>
+            </select>
+
+            <label>Style :</label><br>
+            <select id="textStyle" style="width:100%; padding:8px; margin:8px 0 20px 0;">
+                <option value="normal" selected>Normal</option>
+                <option value="bold">Gras</option>
+                <option value="italic">Italique</option>
+                <option value="bold-italic">Gras + Italique</option>
+                <option value="underline">Souligné</option>
+                <option value="bold-underline">Gras + Souligné</option>
+            </select>
+
+            <div style="text-align:right;">
+                <button id="cancelText" style="padding:10px 20px; margin-right:12px; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer;">Annuler</button>
+                <button id="addTextConfirm" style="padding:10px 20px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer;">Ajouter sur la carte</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Librairie PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script src="main.js"></script>
+    <!-- <script src="last version/main.js"></script> -->
+    <!-- <script type="module" src="js/main.js"></script> -->
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- =========================================================================================================================== -->
+<!-- =========================================================================================================================== -->
+<!-- =========================================================================================================================== -->
+<!-- =========================================================================================================================== -->
+<!-- =========================================================================================================================== -->
+<!-- =========================================================================================================================== -->
+
+
+<!-- <!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dessin simple sans carte – OpenLayers</title>
+    <link href="open-layer/open-layer.css" rel="stylesheet" />
+    <script src="open-layer/open-layer.js" type="text/javascript"></script>
+    <script src="open-layer/proj/projs.js" type="text/javascript"></script>
+    <script src="open-layer/layerSwitcher.js" type="text/javascript"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 800px;
+            background: #f0f0f0;
+            position: relative;
+        }
+
+        /* Positionnement input HTML directement */
+        #textInputDiv {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 6px;
+            border-radius: 6px;
+            z-index: 10000;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h3>Dessiner sur un espace blanc</h3>
+    <div id="tools">
+        <button data-type="Polygon">Polygone</button>
+        <button data-type="LineString">Mur</button>
+        <button data-type="Point">Borne</button>
+        <button data-type="Arrow">Arrow</button>
+    </div> -->
+
+
+    <!-- Input texte + bouton HTML direct -->
+    <!-- <div id="textInputDiv" style="margin-left:15%">
+        <p>
+            Ajouter titre
+            <input id="textValue" type="text" placeholder="titre" style="width:120px">
+            <button id="addTextBtn">entrer</button>
+        </p>
+    </div>
+
+    <div id="map"></div> -->
+
+    <!-- boutton exporter -->
+    <!-- <div style="margin-top:10px">
+        <button id="exportJPG">Exporter JPEG</button>
+        <button id="exportPDF">Exporter PDF</button>
+    </div> -->
+
+    <!-- MODAL pour les options d'export PDF -->
+    <!-- <div id="pdfModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99999; justify-content:center; align-items:center;">
+        <div style="background:white; padding:24px; border-radius:8px; width:380px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0;">Options d'export PDF</h3>
+            
+            <label>Format de page :</label><br>
+            <select id="pdfFormat" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="a3">A3 (420 × 297 mm)</option>
+                <option value="a4" selected>A4 (297 × 210 mm)</option>
+                <option value="a5">A5 (210 × 148 mm)</option>
+                <option value="letter">Letter (8.5 × 11 in)</option>
+            </select>
+
+            <label>Résolution (DPI) :</label><br>
+            <select id="pdfDpi" style="width:100%; padding:8px; margin:8px 0 16px 0;">
+                <option value="72">72 dpi (écran – rapide)</option>
+                <option value="150">150 dpi (moyen)</option>
+                <option value="300" selected>300 dpi (impression qualité)</option>
+            </select>
+
+            <div style="text-align:right;">
+                <button id="cancelPdf" style="padding:8px 16px; margin-right:8px;">Annuler</button>
+                <button id="confirmPdf" style="padding:8px 16px; background:#4a90e2; color:white; border:none; border-radius:4px; cursor:pointer;">Exporter</button>
+            </div>
+        </div>
+    </div> -->
+
+    <!-- Librairie PDF -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script src="main.js"></script> -->
+    <!-- <script type="module" src="js/main.js"></script> -->
+
+<!-- </body>
+
+</html> -->
