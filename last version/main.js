@@ -295,28 +295,37 @@ const source = new ol.source.Vector({ wrapX: false });
 
     document.addEventListener('DOMContentLoaded', function() {
 
-        const exportBtn    = document.getElementById('exportPDF');   // ← ton bouton original
+        const exportBtn    = document.getElementById('exportPDF');
         const modal        = document.getElementById('exportModal');
         const cancelBtn    = document.getElementById('cancelExport');
         const confirmBtn   = document.getElementById('confirmExport');
         const exportType   = document.getElementById('exportType');
         const pdfOptions   = document.getElementById('pdfOptions');
         const modalTitle   = document.getElementById('modalTitle');
-        const confirmText  = confirmBtn.querySelector('span') || confirmBtn; // pour changer le texte
 
-        // Mise à jour dynamique du titre et du bouton + affichage options PDF
+        // Mise à jour de l'interface selon le type choisi
         function updateUI() {
             const type = exportType.value;
-            modalTitle.textContent = type === 'pdf' ? "Exporter en PDF" : "Exporter en JPEG";
-            confirmBtn.textContent = type === 'pdf' ? "Exporter PDF" : "Exporter JPEG";
             
-            pdfOptions.style.display = type === 'pdf' ? 'block' : 'none';
+            modalTitle.textContent = {
+                'pdf':  "Exporter en PDF",
+                'jpeg': "Exporter en JPEG",
+                'json': "Exporter en JSON"
+            }[type] || "Exporter la carte";
+
+            confirmBtn.textContent = {
+                'pdf':  "Exporter PDF",
+                'jpeg': "Exporter JPEG",
+                'json': "Exporter JSON"
+            }[type] || "Exporter";
+
+            pdfOptions.style.display = (type === 'pdf') ? 'block' : 'none';
         }
 
         exportType.addEventListener('change', updateUI);
-        updateUI(); // initial
+        updateUI(); // initialisation
 
-        // Ouvrir le modal (remplace l'ancien onclick du bouton exportPDF)
+        // Ouvrir le modal
         exportBtn.onclick = function() {
             modal.style.display = 'flex';
         };
@@ -326,21 +335,21 @@ const source = new ol.source.Vector({ wrapX: false });
             modal.style.display = 'none';
         };
 
-        // Confirmer → lance l'export selon le choix
+        // Confirmer l'export
         confirmBtn.onclick = function() {
             const type = exportType.value;
             modal.style.display = 'none';
 
             getMapImage(function(canvas) {
                 if (type === 'jpeg') {
-                    // Export JPEG simple
+                    // JPEG
                     const link = document.createElement('a');
                     link.href = canvas.toDataURL('image/jpeg', 0.95);
                     link.download = 'carte_export.jpg';
                     link.click();
                 } 
-                else {
-                    // Export PDF (logique précédente)
+                else if (type === 'pdf') {
+                    // PDF (code existant)
                     const { jsPDF } = window.jspdf;
                     const formatVal = document.getElementById('pdfFormat').value;
                     const dpi       = parseInt(document.getElementById('pdfDpi').value);
@@ -375,111 +384,140 @@ const source = new ol.source.Vector({ wrapX: false });
                         pageHeight
                     );
 
-                    pdf.output('dataurlnewwindow');  // ouvre dans nouvel onglet
+                    pdf.output('dataurlnewwindow');
                     pdf.save(`carte_${formatVal}_${dpi}dpi.pdf`);
+                } 
+                else if (type === 'json') {
+                    // ────────────────────────────────────────────────
+                    // EXPORT JSON avec géométries + propriétés + styles
+                    // ────────────────────────────────────────────────
+                    const features = source.getFeatures();
+
+                    const jsonData = {
+                        type: "FeatureCollection",
+                        name: "Carte dessinée",
+                        crs: { type: "name", properties: { name: "urn:ogc:def:crs:OGC:1.3:CRS84" } }, // projection par défaut (EPSG:4326)
+                        features: features.map(feature => {
+                            const geom = feature.getGeometry();
+                            const props = feature.getProperties() || {};
+
+                            // On nettoie les propriétés internes qu'on ne veut pas exporter
+                            delete props.geometry;
+
+                            // Récupération du style appliqué (si défini)
+                            let styleInfo = null;
+                            const style = feature.getStyle();
+
+                            if (style) {
+                                // Cas où le style est une fonction → on l'appelle avec la feature pour obtenir le résultat
+                                let computedStyle = style;
+                                if (typeof style === 'function') {
+                                    computedStyle = style(feature, map.getView().getResolution());
+                                }
+
+                                // computedStyle peut être un tableau ou un seul Style
+                                const stylesArray = Array.isArray(computedStyle) ? computedStyle : [computedStyle];
+
+                                // On prend le premier style pour simplifier (le plus courant)
+                                const mainStyle = stylesArray[0];
+
+                                if (mainStyle) {
+                                    styleInfo = {};
+
+                                    // Stroke (trait)
+                                    const stroke = mainStyle.getStroke();
+                                    if (stroke) {
+                                        styleInfo.stroke = {
+                                            color: stroke.getColor(),
+                                            width: stroke.getWidth(),
+                                            lineDash: stroke.getLineDash() || undefined,
+                                            lineCap: stroke.getLineCap(),
+                                            lineJoin: stroke.getLineJoin()
+                                        };
+                                    }
+
+                                    // Fill (remplissage)
+                                    const fill = mainStyle.getFill();
+                                    if (fill) {
+                                        styleInfo.fill = {
+                                            color: fill.getColor()
+                                        };
+                                    }
+
+                                    // Text (pour les annotations texte)
+                                    const text = mainStyle.getText();
+                                    if (text) {
+                                        styleInfo.text = {
+                                            content: text.getText(),
+                                            font: text.getFont(),
+                                            fillColor: text.getFill()?.getColor(),
+                                            strokeColor: text.getStroke()?.getColor(),
+                                            strokeWidth: text.getStroke()?.getWidth(),
+                                            rotation: text.getRotation(),
+                                            scale: text.getScale(),
+                                            offsetX: text.getOffsetX(),
+                                            offsetY: text.getOffsetY(),
+                                            textAlign: text.getTextAlign(),
+                                            textBaseline: text.getTextBaseline()
+                                        };
+                                    }
+
+                                    // Icon (pour borne, nord, flèche, etc.)
+                                    const image = mainStyle.getImage();
+                                    if (image && image instanceof ol.style.Icon) {
+                                        styleInfo.icon = {
+                                            src: image.getSrc(),
+                                            scale: image.getScale(),
+                                            rotation: image.getRotation(),
+                                            anchor: image.getAnchor()
+                                        };
+                                    }
+                                }
+                            }
+
+                            return {
+                                type: "Feature",
+                                geometry: geom ? {
+                                    type: geom.getType(),
+                                    coordinates: geom.getCoordinates()
+                                } : null,
+                                properties: {
+                                    ...props,
+                                    // On ajoute les styles calculés
+                                    style: styleInfo || undefined
+                                }
+                            };
+                        }).filter(f => f.geometry !== null)
+                    };
+
+                    jsonData.metadata = {
+                        exportedAt: new Date().toISOString(),
+                        center: map.getView().getCenter(),
+                        zoom: map.getView().getZoom()
+                    };
+
+                    const jsonString = JSON.stringify(jsonData, null, 2);
+
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'carte_vectorielle_' + new Date().toISOString().slice(0,10) + '.json';
+                    document.body.appendChild(link);
+                    link.click();
+
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
                 }
             });
         };
 
-        // Clic en dehors → fermer
+        // Fermer modal si clic en dehors
         modal.addEventListener('click', function(e) {
             if (e.target === modal) modal.style.display = 'none';
         });
     });
-
-    // document.addEventListener('DOMContentLoaded', function() {
-
-    //     const exportBtn    = document.getElementById('exportPDF');   // ← ton bouton original
-    //     const modal        = document.getElementById('exportModal');
-    //     const cancelBtn    = document.getElementById('cancelExport');
-    //     const confirmBtn   = document.getElementById('confirmExport');
-    //     const exportType   = document.getElementById('exportType');
-    //     const pdfOptions   = document.getElementById('pdfOptions');
-    //     const modalTitle   = document.getElementById('modalTitle');
-    //     const confirmText  = confirmBtn.querySelector('span') || confirmBtn; // pour changer le texte
-
-    //     // Mise à jour dynamique du titre et du bouton + affichage options PDF
-    //     function updateUI() {
-    //         const type = exportType.value;
-    //         modalTitle.textContent = type === 'pdf' ? "Exporter en PDF" : "Exporter en JPEG";
-    //         confirmBtn.textContent = type === 'pdf' ? "Exporter PDF" : "Exporter JPEG";
-            
-    //         pdfOptions.style.display = type === 'pdf' ? 'block' : 'none';
-    //     }
-
-    //     exportType.addEventListener('change', updateUI);
-    //     updateUI(); // initial
-
-    //     // Ouvrir le modal (remplace l'ancien onclick du bouton exportPDF)
-    //     exportBtn.onclick = function() {
-    //         modal.style.display = 'flex';
-    //     };
-
-    //     // Annuler
-    //     cancelBtn.onclick = function() {
-    //         modal.style.display = 'none';
-    //     };
-
-    //     // Confirmer → lance l'export selon le choix
-    //     confirmBtn.onclick = function() {
-    //         const type = exportType.value;
-    //         modal.style.display = 'none';
-
-    //         getMapImage(function(canvas) {
-    //             if (type === 'jpeg') {
-    //                 // Export JPEG simple
-    //                 const link = document.createElement('a');
-    //                 link.href = canvas.toDataURL('image/jpeg', 0.95);
-    //                 link.download = 'carte_export.jpg';
-    //                 link.click();
-    //             } 
-    //             else {
-    //                 // Export PDF (logique précédente)
-    //                 const { jsPDF } = window.jspdf;
-    //                 const formatVal = document.getElementById('pdfFormat').value;
-    //                 const dpi       = parseInt(document.getElementById('pdfDpi').value);
-
-    //                 let pageWidth, pageHeight;
-    //                 switch(formatVal) {
-    //                     case 'a3':     pageWidth = 420; pageHeight = 297; break;
-    //                     case 'a4':     pageWidth = 297; pageHeight = 210; break;
-    //                     case 'a5':     pageWidth = 210; pageHeight = 148; break;
-    //                     case 'letter': pageWidth = 215.9; pageHeight = 279.4; break;
-    //                     default:       pageWidth = 297; pageHeight = 210;
-    //                 }
-
-    //                 const pdf = new jsPDF({
-    //                     orientation: 'landscape',
-    //                     unit: 'mm',
-    //                     format: [pageWidth, pageHeight]
-    //                 });
-
-    //                 const scale = dpi / 72;
-    //                 const tempCanvas = document.createElement('canvas');
-    //                 tempCanvas.width  = canvas.width  * scale;
-    //                 tempCanvas.height = canvas.height * scale;
-    //                 const ctx = tempCanvas.getContext('2d');
-    //                 ctx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-
-    //                 pdf.addImage(
-    //                     tempCanvas.toDataURL('image/jpeg', 0.92),
-    //                     'JPEG',
-    //                     0, 0,
-    //                     pageWidth,
-    //                     pageHeight
-    //                 );
-
-    //                 pdf.output('dataurlnewwindow');  // ouvre dans nouvel onglet
-    //                 pdf.save(`carte_${formatVal}_${dpi}dpi.pdf`);
-    //             }
-    //         });
-    //     };
-
-    //     // Clic en dehors → fermer
-    //     modal.addEventListener('click', function(e) {
-    //         if (e.target === modal) modal.style.display = 'none';
-    //     });
-    // });
 
     // ============================================================================
     // ========== Gestion du bouton Polygone + modal ==========
@@ -589,6 +627,141 @@ const source = new ol.source.Vector({ wrapX: false });
         // Clic extérieur pour fermer modal
         document.getElementById('textModal').addEventListener('click', function(e) {
             if (e.target === this) this.style.display = 'none';
+        });
+    });
+
+    // ============================================================================
+    // Gestion du bouton Importer + modal import
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const importBtn = document.getElementById('importJSON');
+        const importModal = document.getElementById('importModal');
+        const cancelImportBtn = document.getElementById('cancelImport');
+        const confirmImportBtn = document.getElementById('confirmImport');
+        const fileInput = document.getElementById('jsonFileInput');
+
+        if (!importBtn || !importModal) {
+            console.warn("Éléments du modal d'importation introuvables");
+            return;
+        }
+
+        // Ouvrir le modal
+        importBtn.onclick = function() {
+            importModal.style.display = 'flex';
+            fileInput.value = ''; // reset champ fichier
+        };
+
+        // Annuler
+        cancelImportBtn.onclick = function() {
+            importModal.style.display = 'none';
+            fileInput.value = '';
+        };
+
+        // Confirmer / Importer
+        confirmImportBtn.onclick = function() {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Veuillez sélectionner un fichier JSON.");
+                return;
+            }
+
+            if (!file.name.endsWith('.json')) {
+                alert("Le fichier doit être au format .json");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+
+                    // Vider la carte actuelle (optionnel – à commenter si tu veux ajouter sans effacer)
+                    source.clear();
+
+                    // Importer les features
+                    if (jsonData.type === "FeatureCollection" && Array.isArray(jsonData.features)) {
+                        jsonData.features.forEach(feat => {
+                            if (!feat.geometry || !feat.geometry.type || !feat.geometry.coordinates) {
+                                return;
+                            }
+
+                            let geometry;
+                            try {
+                                geometry = new ol.geom[feat.geometry.type](feat.geometry.coordinates);
+                            } catch (err) {
+                                console.warn("Géométrie invalide ignorée :", feat.geometry.type);
+                                return;
+                            }
+
+                            const feature = new ol.Feature({
+                                geometry: geometry,
+                                ...feat.properties
+                            });
+
+                            // Restaurer les propriétés spécifiques
+                            if (feat.properties.isText) {
+                                feature.set('isText', true);
+                                feature.setStyle(createTextStyleFromFeature(feature));
+                            }
+                            else if (feat.properties.isArrow) {
+                                feature.set('isArrow', true);
+                            }
+                            else if (feat.properties.isNord) {
+                                feature.set('isNord', true);
+                            }
+
+                            // Si style exporté, on peut essayer de le réappliquer (optionnel)
+                            if (feat.properties.style) {
+                                // Ici tu peux recréer un style à partir des données
+                                // (cette partie est simplifiée – à développer si besoin)
+                                if (feat.properties.style.text) {
+                                    feature.setStyle(createTextStyleFromFeature(feature));
+                                }
+                                else if (feat.properties.style.stroke || feat.properties.style.fill) {
+                                    // Pour polygones / lignes
+                                    feature.setStyle(getPolygonStyle()); // ou logique plus fine
+                                }
+                            }
+
+                            source.addFeature(feature);
+                        });
+
+                        // Optionnel : recentrer la vue sur les données importées
+                        if (jsonData.metadata && jsonData.metadata.center && jsonData.metadata.zoom) {
+                            map.getView().setCenter(jsonData.metadata.center);
+                            map.getView().setZoom(jsonData.metadata.zoom);
+                        }
+
+                        alert("Importation terminée avec succès !");
+                    } else {
+                        alert("Format JSON non reconnu (pas une FeatureCollection valide).");
+                    }
+                } catch (err) {
+                    console.error("Erreur lors du parsing JSON :", err);
+                    alert("Le fichier JSON est invalide ou corrompu.");
+                }
+
+                // Fermer le modal
+                importModal.style.display = 'none';
+                fileInput.value = '';
+            };
+
+            reader.onerror = function() {
+                alert("Erreur lors de la lecture du fichier.");
+            };
+
+            reader.readAsText(file);
+        };
+
+        // Fermer modal si clic en dehors
+        importModal.addEventListener('click', function(e) {
+            if (e.target === importModal) {
+                importModal.style.display = 'none';
+                fileInput.value = '';
+            }
         });
     });
 

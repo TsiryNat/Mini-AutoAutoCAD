@@ -631,6 +631,141 @@ const source = new ol.source.Vector({ wrapX: false });
     });
 
     // ============================================================================
+    // Gestion du bouton Importer + modal import
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+        const importBtn = document.getElementById('importJSON');
+        const importModal = document.getElementById('importModal');
+        const cancelImportBtn = document.getElementById('cancelImport');
+        const confirmImportBtn = document.getElementById('confirmImport');
+        const fileInput = document.getElementById('jsonFileInput');
+
+        if (!importBtn || !importModal) {
+            console.warn("Éléments du modal d'importation introuvables");
+            return;
+        }
+
+        // Ouvrir le modal
+        importBtn.onclick = function() {
+            importModal.style.display = 'flex';
+            fileInput.value = ''; // reset champ fichier
+        };
+
+        // Annuler
+        cancelImportBtn.onclick = function() {
+            importModal.style.display = 'none';
+            fileInput.value = '';
+        };
+
+        // Confirmer / Importer
+        confirmImportBtn.onclick = function() {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert("Veuillez sélectionner un fichier JSON.");
+                return;
+            }
+
+            if (!file.name.endsWith('.json')) {
+                alert("Le fichier doit être au format .json");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result);
+
+                    // Vider la carte actuelle (optionnel – à commenter si tu veux ajouter sans effacer)
+                    source.clear();
+
+                    // Importer les features
+                    if (jsonData.type === "FeatureCollection" && Array.isArray(jsonData.features)) {
+                        jsonData.features.forEach(feat => {
+                            if (!feat.geometry || !feat.geometry.type || !feat.geometry.coordinates) {
+                                return;
+                            }
+
+                            let geometry;
+                            try {
+                                geometry = new ol.geom[feat.geometry.type](feat.geometry.coordinates);
+                            } catch (err) {
+                                console.warn("Géométrie invalide ignorée :", feat.geometry.type);
+                                return;
+                            }
+
+                            const feature = new ol.Feature({
+                                geometry: geometry,
+                                ...feat.properties
+                            });
+
+                            // Restaurer les propriétés spécifiques
+                            if (feat.properties.isText) {
+                                feature.set('isText', true);
+                                feature.setStyle(createTextStyleFromFeature(feature));
+                            }
+                            else if (feat.properties.isArrow) {
+                                feature.set('isArrow', true);
+                            }
+                            else if (feat.properties.isNord) {
+                                feature.set('isNord', true);
+                            }
+
+                            // Si style exporté, on peut essayer de le réappliquer (optionnel)
+                            if (feat.properties.style) {
+                                // Ici tu peux recréer un style à partir des données
+                                // (cette partie est simplifiée – à développer si besoin)
+                                if (feat.properties.style.text) {
+                                    feature.setStyle(createTextStyleFromFeature(feature));
+                                }
+                                else if (feat.properties.style.stroke || feat.properties.style.fill) {
+                                    // Pour polygones / lignes
+                                    feature.setStyle(getPolygonStyle()); // ou logique plus fine
+                                }
+                            }
+
+                            source.addFeature(feature);
+                        });
+
+                        // Optionnel : recentrer la vue sur les données importées
+                        if (jsonData.metadata && jsonData.metadata.center && jsonData.metadata.zoom) {
+                            map.getView().setCenter(jsonData.metadata.center);
+                            map.getView().setZoom(jsonData.metadata.zoom);
+                        }
+
+                        alert("Importation terminée avec succès !");
+                    } else {
+                        alert("Format JSON non reconnu (pas une FeatureCollection valide).");
+                    }
+                } catch (err) {
+                    console.error("Erreur lors du parsing JSON :", err);
+                    alert("Le fichier JSON est invalide ou corrompu.");
+                }
+
+                // Fermer le modal
+                importModal.style.display = 'none';
+                fileInput.value = '';
+            };
+
+            reader.onerror = function() {
+                alert("Erreur lors de la lecture du fichier.");
+            };
+
+            reader.readAsText(file);
+        };
+
+        // Fermer modal si clic en dehors
+        importModal.addEventListener('click', function(e) {
+            if (e.target === importModal) {
+                importModal.style.display = 'none';
+                fileInput.value = '';
+            }
+        });
+    });
+
+    // ============================================================================
     // ============================================================================
     // =========================== GESTION DU TEXT ================================
     // ============================================================================
