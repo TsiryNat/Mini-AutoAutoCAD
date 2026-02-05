@@ -799,19 +799,6 @@ const source = new ol.source.Vector({ wrapX: false });
                                 );
                             }
 
-                            // // Si style exporté, on peut essayer de le réappliquer (optionnel)
-                            // if (feat.properties.style) {
-                            //     // Ici tu peux recréer un style à partir des données
-                            //     // (cette partie est simplifiée – à développer si besoin)
-                            //     if (feat.properties.style.text) {
-                            //         feature.setStyle(createTextStyleFromFeature(feature));
-                            //     }
-                            //     else if (feat.properties.style.stroke || feat.properties.style.fill) {
-                            //         // Pour polygones / lignes
-                            //         feature.setStyle(getPolygonStyle()); // ou logique plus fine
-                            //     }
-                            // }
-
                             // IMPORTANT : on NE touche PAS aux polygones ici
                             // On garde seulement le cas texte
                             if (feat.properties.style && feat.properties.style.text) {
