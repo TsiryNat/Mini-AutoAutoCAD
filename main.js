@@ -12,6 +12,14 @@ const source = new ol.source.Vector({ wrapX: false });
     let currentTextCase = 'as-is';
     let currentTextStyle = 'normal';
 
+    let modePlacementBornesAuto = false;
+    let premierSommetChoisi = null;
+    let polygoneSelectionne = null;
+
+    // ============================================================================
+    // ============================================================================
+    // ======================== VARIABLE & FUNCTION ===============================
+    // ============================================================================
     // ============================================================================
     // --- Styles ---
     const defaultStyle = new ol.style.Style({
@@ -280,6 +288,100 @@ const source = new ol.source.Vector({ wrapX: false });
     }
 
     // ============================================================================
+    // --- Listener global pour détecter les clics en mode bornes auto  ---
+
+    map.on('singleclick', function(evt) {
+        if (!modePlacementBornesAuto) return;
+
+        // Recherche du vertex le plus proche du clic
+        let vertexTrouve = null;
+        let distanceMin = Infinity;
+        let polygoneCible = null;
+        let indexVertex = -1;
+
+        map.getLayers().forEach(layer => {
+            if (layer instanceof ol.layer.Vector) {
+                layer.getSource().getFeatures().forEach(feature => {
+                    const geom = feature.getGeometry();
+                    if (geom && geom.getType() === 'Polygon') {
+                        const coords = geom.getCoordinates()[0]; // premier anneau (extérieur)
+
+                        coords.forEach((coord, i) => {
+                            const pixelCoord = map.getPixelFromCoordinate(coord);
+                            const pixelClick = evt.pixel;
+                            const dist = Math.hypot(pixelCoord[0] - pixelClick[0], pixelCoord[1] - pixelClick[1]);
+
+                            if (dist < distanceMin && dist < 20) { // tolérance 20 pixels
+                                distanceMin = dist;
+                                vertexTrouve = coord;
+                                polygoneCible = feature;
+                                indexVertex = i;
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Si aucun vertex proche → annuler ou ignorer
+        if (!vertexTrouve) {
+            // Option : on peut annuler le mode si clic trop loin
+            if (distanceMin > 50) {
+                modePlacementBornesAuto = false;
+                premierSommetChoisi = null;
+                polygoneSelectionne = null;
+                alert("Placement annulé (clic trop loin d'un coin).");
+            }
+            return;
+        }
+
+        // Premier clic → mémoriser le point de départ
+        if (!premierSommetChoisi) {
+            premierSommetChoisi = vertexTrouve;
+            polygoneSelectionne = polygoneCible;
+
+            // Placer la première borne
+            ajouterBorne(vertexTrouve);
+            return;
+        }
+
+        // Deuxième clic ou plus → on place toutes les bornes suivantes dans le sens horaire
+        if (polygoneCible !== polygoneSelectionne) {
+            alert("Veuillez cliquer sur un coin du même polygone.");
+            return;
+        }
+
+        const anneau = polygoneSelectionne.getGeometry().getCoordinates()[0];
+        const debutIndex = indexVertex;
+
+        // Placement automatique dans le sens horaire à partir du point cliqué
+        for (let i = debutIndex; i < anneau.length; i++) {
+            ajouterBorne(anneau[i]);
+        }
+
+        // On boucle au début si nécessaire (pour fermer le polygone)
+        for (let i = 0; i < debutIndex; i++) {
+            ajouterBorne(anneau[i]);
+        }
+
+        // Fin du placement automatique
+        modePlacementBornesAuto = false;
+        premierSommetChoisi = null;
+        polygoneSelectionne = null;
+
+        alert("Placement automatique des bornes terminé (sens horaire).");
+    });
+
+    // Fonction pour ajouter une borne (Point avec style borne)
+    function ajouterBorne(coord) {
+        const borne = new ol.Feature({
+            geometry: new ol.geom.Point(coord)
+        });
+        borne.setStyle(borneStyle);
+        source.addFeature(borne);
+    }
+
+    // ============================================================================
     // ============================================================================
     // ======================== GESTION DES BOUTTONS ==============================
     // ============================================================================
@@ -290,16 +392,40 @@ const source = new ol.source.Vector({ wrapX: false });
 
     // Gestion du clic sur chaque bouton
     toolButtons.forEach(button => {
+        // Dans la boucle toolButtons.forEach
         button.addEventListener('click', function() {
-            // Retire la classe active à tous les boutons
-            toolButtons.forEach(btn => btn.classList.remove('active'));
-            // Ajoute la classe active au bouton cliqué
-            this.classList.add('active');
+            const type = this.getAttribute('data-type');
 
-            // Lance la fonction de dessin avec le type du bouton
-            addDrawInteraction(this.getAttribute('data-type'));
+            // Retirer le mode précédent si actif
+            modePlacementBornesAuto = false;
+            premierSommetChoisi = null;
+            polygoneSelectionne = null;
+
+            if (type === "Point") {  // Borne
+                // On active le mode spécial au lieu du dessin normal
+                modePlacementBornesAuto = true;
+                alert("Cliquez sur un coin d'un polygone pour commencer le placement automatique des bornes (sens horaire).\nClic droit ou clic loin pour annuler.");
+            } else {
+                // Les autres types restent normaux
+                addDrawInteraction(type);
+            }
+
+            // Visuel actif
+            toolButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
         });
     });
+    // toolButtons.forEach(button => {
+    //     button.addEventListener('click', function() {
+    //         // Retire la classe active à tous les boutons
+    //         toolButtons.forEach(btn => btn.classList.remove('active'));
+    //         // Ajoute la classe active au bouton cliqué
+    //         this.classList.add('active');
+
+    //         // Lance la fonction de dessin avec le type du bouton
+    //         addDrawInteraction(this.getAttribute('data-type'));
+    //     });
+    // });
 
     // Optionnel : activer le premier bouton par défaut (ex: Polygone)
     const defaultButton = document.querySelector('#tools button[data-type="Polygon"]');
