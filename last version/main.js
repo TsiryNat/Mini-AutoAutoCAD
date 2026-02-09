@@ -106,6 +106,48 @@ const source = new ol.source.Vector({ wrapX: false });
         });
     }
 
+    // Nouvelle fonction pour créer un style polygone sans utiliser les globales
+    function createPolygonStyle(strokeWidth, strokeColor, fillColor) {
+        const width = parseInt(strokeWidth) || 2;  // fallback si manquant
+        const fill = fillColor === 'none' 
+            ? undefined 
+            : new ol.style.Fill({ color: fillColor || 'rgba(0,0,0,0.15)' });
+
+        // Cas spécial : double ligne neutre
+        if (strokeColor === 'none-double') {
+            return [
+                new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#444',
+                        width: width + 2
+                    })
+                }),
+                new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: 'white',
+                        width: width - 1
+                    })
+                })
+                // Ligne centrale optionnelle (décommente si tu veux)
+                // new ol.style.Style({
+                //     stroke: new ol.style.Stroke({
+                //         color: '#444',
+                //         width: 1.5
+                //     })
+                // })
+            ];
+        }
+
+        // Cas normal
+        return new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: strokeColor || 'black',
+                width: width
+            }),
+            fill: fill
+        });
+    }
+
     // ============================================================================
     // --- Gerer du Text ---
 
@@ -213,8 +255,16 @@ const source = new ol.source.Vector({ wrapX: false });
             });
 
             draw.on("drawend", function(event) {
+                const feature = event.feature;
+                // ────────────────────────────────────────────────
+                // IMPORTANT : on stocke les valeurs actuelles DANS la feature
+                // ────────────────────────────────────────────────
+                feature.set('polyStrokeWidth', currentPolyStrokeWidth);
+                feature.set('polyStrokeColor', currentPolyStrokeColor);
+                feature.set('polyFill',       currentPolyFillColor);
+
                 // Applique le même style à la feature finale
-                event.feature.setStyle(getPolygonStyle());
+                feature.setStyle(getPolygonStyle());
             });
         }
         else if (type === 'Text') {
@@ -404,6 +454,29 @@ const source = new ol.source.Vector({ wrapX: false });
                             // On nettoie les propriétés internes qu'on ne veut pas exporter
                             delete props.geometry;
 
+                            // ────────────────────────────────────────────────
+                            // Sauvegarde explicite des paramètres de style POLYGONE
+                            // ────────────────────────────────────────────────
+                            let polygonStyleConfig = null;
+
+                            // if (geom && geom.getType() === 'Polygon') {
+                            //     // On essaie de récupérer les valeurs depuis les propriétés
+                            //     // ou depuis les variables globales actuelles si elles n'ont pas été stockées
+                            //     polygonStyleConfig = {
+                            //         strokeWidth: props.polyStrokeWidth || currentPolyStrokeWidth,
+                            //         strokeColor: props.polyStrokeColor || currentPolyStrokeColor,
+                            //         fillColor:   props.polyFill       || currentPolyFillColor
+                            //     };
+                            // }
+
+                            if (geom && geom.getType() === 'Polygon') {
+                                polygonStyleConfig = {
+                                    strokeWidth: props.polyStrokeWidth || 2,
+                                    strokeColor: props.polyStrokeColor || 'black',
+                                    fillColor:   props.polyFill       || 'rgba(0,0,0,0.15)'
+                                };
+                            }
+
                             // Récupération du style appliqué (si défini)
                             let styleInfo = null;
                             const style = feature.getStyle();
@@ -483,6 +556,8 @@ const source = new ol.source.Vector({ wrapX: false });
                                 } : null,
                                 properties: {
                                     ...props,
+                                    // Ajout des configs spécifiques polygone
+                                    polygonStyle: polygonStyleConfig || undefined,
                                     // On ajoute les styles calculés
                                     style: styleInfo || undefined
                                 }
@@ -684,9 +759,8 @@ const source = new ol.source.Vector({ wrapX: false });
                     // Importer les features
                     if (jsonData.type === "FeatureCollection" && Array.isArray(jsonData.features)) {
                         jsonData.features.forEach(feat => {
-                            if (!feat.geometry || !feat.geometry.type || !feat.geometry.coordinates) {
-                                return;
-                            }
+
+                            if (!feat.geometry || !feat.geometry.type || !feat.geometry.coordinates) { return; }
 
                             let geometry;
                             try {
@@ -712,18 +786,23 @@ const source = new ol.source.Vector({ wrapX: false });
                             else if (feat.properties.isNord) {
                                 feature.set('isNord', true);
                             }
+                            else if (feat.geometry.type === 'Polygon' && feat.properties.polygonStyle) {
+                                const ps = feat.properties.polygonStyle;
 
-                            // Si style exporté, on peut essayer de le réappliquer (optionnel)
-                            if (feat.properties.style) {
-                                // Ici tu peux recréer un style à partir des données
-                                // (cette partie est simplifiée – à développer si besoin)
-                                if (feat.properties.style.text) {
-                                    feature.setStyle(createTextStyleFromFeature(feature));
-                                }
-                                else if (feat.properties.style.stroke || feat.properties.style.fill) {
-                                    // Pour polygones / lignes
-                                    feature.setStyle(getPolygonStyle()); // ou logique plus fine
-                                }
+                                // On applique directement avec les valeurs du JSON
+                                feature.setStyle(
+                                    createPolygonStyle(
+                                        ps.strokeWidth,
+                                        ps.strokeColor,
+                                        ps.fillColor
+                                    )
+                                );
+                            }
+
+                            // IMPORTANT : on NE touche PAS aux polygones ici
+                            // On garde seulement le cas texte
+                            if (feat.properties.style && feat.properties.style.text) {
+                                feature.setStyle(createTextStyleFromFeature(feature));
                             }
 
                             source.addFeature(feature);
