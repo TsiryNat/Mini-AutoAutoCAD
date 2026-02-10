@@ -323,53 +323,76 @@ const source = new ol.source.Vector({ wrapX: false });
             }
         });
 
-        // Si aucun vertex proche → annuler ou ignorer
-        if (!vertexTrouve) {
-            // Option : on peut annuler le mode si clic trop loin
+        // // Si aucun vertex proche → annuler ou ignorer
+        // if (!vertexTrouve) {
+        //     // Option : on peut annuler le mode si clic trop loin
+        //     if (distanceMin > 50) {
+        //         modePlacementBornesAuto = false;
+        //         premierSommetChoisi = null;
+        //         polygoneSelectionne = null;
+        //         alert("Placement annulé (clic trop loin d'un coin).");
+        //     }
+        //     return;
+        // }
+
+        // // Premier clic → mémoriser le point de départ
+        // if (!premierSommetChoisi) {
+        //     premierSommetChoisi = vertexTrouve;
+        //     polygoneSelectionne = polygoneCible;
+
+        //     // Placer la première borne
+        //     ajouterBorne(vertexTrouve);
+        //     return;
+        // }
+
+        // // Deuxième clic ou plus → on place toutes les bornes suivantes dans le sens horaire
+        // if (polygoneCible !== polygoneSelectionne) {
+        //     alert("Veuillez cliquer sur un coin du même polygone.");
+        //     return;
+        // }
+
+        // const anneau = polygoneSelectionne.getGeometry().getCoordinates()[0];
+        // const debutIndex = indexVertex;
+
+        // // Placement automatique dans le sens horaire à partir du point cliqué
+        // for (let i = debutIndex; i < anneau.length; i++) {
+        //     ajouterBorne(anneau[i]);
+        // }
+
+        // // On boucle au début si nécessaire (pour fermer le polygone)
+        // for (let i = 0; i < debutIndex; i++) {
+        //     ajouterBorne(anneau[i]);
+        // }
+
+        // // Fin du placement automatique
+        // modePlacementBornesAuto = false;
+        // premierSommetChoisi = null;
+        // polygoneSelectionne = null;
+
+        // alert("Placement automatique des bornes terminé (sens horaire).");
+
+        if (vertexTrouve) {
+            const anneau = polygoneCible.getGeometry().getCoordinates()[0];
+            const debutIndex = indexVertex;
+
+            // Placement automatique immédiat
+            for (let i = debutIndex; i < anneau.length; i++) {
+                ajouterBorne(anneau[i]);
+            }
+            for (let i = 0; i < debutIndex; i++) {
+                ajouterBorne(anneau[i]);
+            }
+
+            modePlacementBornesAuto = false;
+            alert("Bornes placées automatiquement sur tous les coins (sens horaire).");
+        } else {
+            // annuler si clic loin
             if (distanceMin > 50) {
                 modePlacementBornesAuto = false;
-                premierSommetChoisi = null;
-                polygoneSelectionne = null;
-                alert("Placement annulé (clic trop loin d'un coin).");
+                alert("Placement annulé.");
             }
-            return;
         }
 
-        // Premier clic → mémoriser le point de départ
-        if (!premierSommetChoisi) {
-            premierSommetChoisi = vertexTrouve;
-            polygoneSelectionne = polygoneCible;
-
-            // Placer la première borne
-            ajouterBorne(vertexTrouve);
-            return;
-        }
-
-        // Deuxième clic ou plus → on place toutes les bornes suivantes dans le sens horaire
-        if (polygoneCible !== polygoneSelectionne) {
-            alert("Veuillez cliquer sur un coin du même polygone.");
-            return;
-        }
-
-        const anneau = polygoneSelectionne.getGeometry().getCoordinates()[0];
-        const debutIndex = indexVertex;
-
-        // Placement automatique dans le sens horaire à partir du point cliqué
-        for (let i = debutIndex; i < anneau.length; i++) {
-            ajouterBorne(anneau[i]);
-        }
-
-        // On boucle au début si nécessaire (pour fermer le polygone)
-        for (let i = 0; i < debutIndex; i++) {
-            ajouterBorne(anneau[i]);
-        }
-
-        // Fin du placement automatique
-        modePlacementBornesAuto = false;
-        premierSommetChoisi = null;
-        polygoneSelectionne = null;
-
-        alert("Placement automatique des bornes terminé (sens horaire).");
     });
 
     // Fonction pour ajouter une borne (Point avec style borne)
