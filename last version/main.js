@@ -323,54 +323,6 @@ const source = new ol.source.Vector({ wrapX: false });
             }
         });
 
-        // // Si aucun vertex proche → annuler ou ignorer
-        // if (!vertexTrouve) {
-        //     // Option : on peut annuler le mode si clic trop loin
-        //     if (distanceMin > 50) {
-        //         modePlacementBornesAuto = false;
-        //         premierSommetChoisi = null;
-        //         polygoneSelectionne = null;
-        //         alert("Placement annulé (clic trop loin d'un coin).");
-        //     }
-        //     return;
-        // }
-
-        // // Premier clic → mémoriser le point de départ
-        // if (!premierSommetChoisi) {
-        //     premierSommetChoisi = vertexTrouve;
-        //     polygoneSelectionne = polygoneCible;
-
-        //     // Placer la première borne
-        //     ajouterBorne(vertexTrouve);
-        //     return;
-        // }
-
-        // // Deuxième clic ou plus → on place toutes les bornes suivantes dans le sens horaire
-        // if (polygoneCible !== polygoneSelectionne) {
-        //     alert("Veuillez cliquer sur un coin du même polygone.");
-        //     return;
-        // }
-
-        // const anneau = polygoneSelectionne.getGeometry().getCoordinates()[0];
-        // const debutIndex = indexVertex;
-
-        // // Placement automatique dans le sens horaire à partir du point cliqué
-        // for (let i = debutIndex; i < anneau.length; i++) {
-        //     ajouterBorne(anneau[i]);
-        // }
-
-        // // On boucle au début si nécessaire (pour fermer le polygone)
-        // for (let i = 0; i < debutIndex; i++) {
-        //     ajouterBorne(anneau[i]);
-        // }
-
-        // // Fin du placement automatique
-        // modePlacementBornesAuto = false;
-        // premierSommetChoisi = null;
-        // polygoneSelectionne = null;
-
-        // alert("Placement automatique des bornes terminé (sens horaire).");
-
         if (vertexTrouve) {
             const anneau = polygoneCible.getGeometry().getCoordinates()[0];
             const debutIndex = indexVertex;
@@ -415,41 +367,37 @@ const source = new ol.source.Vector({ wrapX: false });
 
     // Gestion du clic sur chaque bouton
     toolButtons.forEach(button => {
-        // Dans la boucle toolButtons.forEach
         button.addEventListener('click', function() {
+            // ────────────────────────────────────────────────
+            // IMPORTANT : Enlève TOUJOURS l'interaction précédente
+            // ────────────────────────────────────────────────
+            if (draw) {
+                map.removeInteraction(draw);
+                draw = null;  // reset la variable
+            }
+
+            // Retire la classe active à tous les boutons
+            toolButtons.forEach(btn => btn.classList.remove('active'));
+            // Ajoute la classe active au bouton cliqué
+            this.classList.add('active');
+
             const type = this.getAttribute('data-type');
 
-            // Retirer le mode précédent si actif
+            // Reset modes spéciaux si besoin
             modePlacementBornesAuto = false;
             premierSommetChoisi = null;
             polygoneSelectionne = null;
 
             if (type === "Point") {  // Borne
-                // On active le mode spécial au lieu du dessin normal
                 modePlacementBornesAuto = true;
                 alert("Cliquez sur un coin d'un polygone pour commencer le placement automatique des bornes (sens horaire).\nClic droit ou clic loin pour annuler.");
             } else {
-                // Les autres types restent normaux
+                // Pour les autres types, appelle addDrawInteraction
                 addDrawInteraction(type);
             }
-
-            // Visuel actif
-            toolButtons.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
         });
     });
-    // toolButtons.forEach(button => {
-    //     button.addEventListener('click', function() {
-    //         // Retire la classe active à tous les boutons
-    //         toolButtons.forEach(btn => btn.classList.remove('active'));
-    //         // Ajoute la classe active au bouton cliqué
-    //         this.classList.add('active');
-
-    //         // Lance la fonction de dessin avec le type du bouton
-    //         addDrawInteraction(this.getAttribute('data-type'));
-    //     });
-    // });
-
+   
     // Optionnel : activer le premier bouton par défaut (ex: Polygone)
     const defaultButton = document.querySelector('#tools button[data-type="Polygon"]');
     if (defaultButton) {
