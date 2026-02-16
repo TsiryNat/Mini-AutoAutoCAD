@@ -227,7 +227,20 @@ const source = new ol.source.Vector({ wrapX: false });
     const map = new ol.Map({
         target: 'map',
         layers: [vectorLayer],
-        controls: [], // <-- supprime tous les controles par défaut
+
+        // On ajoute uniquement les contrôles que l’on veut
+        controls: [
+            // Ajout de l’échelle (ScaleLine)
+            new ol.control.ScaleLine({
+                units: 'metric',       // ou 'degrees' ou 'nautical'
+                bar: true,             // style barre moderne
+                steps: 4,              // divisions
+                text: true,            // affiche la distance (ex: 500 m)
+                minWidth: 140          // largeur minimale en pixels
+            })
+            // Tu peux en ajouter d’autres plus tard si besoin
+        ],
+
         view: new ol.View({
             center: [0, 0],
             zoom: 5
